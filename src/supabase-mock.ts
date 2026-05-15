@@ -6,12 +6,24 @@ import type {
   DatabaseMockBuilder,
   AuthMockBuilder,
   StorageMockBuilder,
-  AuthSpySeedPayload,
 } from "./types.js";
 
 const DEFAULT_HEADERS: Record<string, string> = {
   "content-type": "application/json",
 };
+
+interface AuthSpySeedPayload {
+  /**
+   * Email used to build the mock session.
+   * - `undefined`: leave browser auth state unchanged.
+   * - `null`: clear the mocked auth session.
+   */
+  sessionEmail?: string | null;
+  /**
+   * Supabase auth cookie names to keep in sync with the mocked session.
+   */
+  authCookieKeys?: string[];
+}
 
 /**
  * Registers a Playwright route interceptor that matches requests using a URL
