@@ -71,46 +71,6 @@ function urlMatches(entry: CapturedEntry, url: string): boolean {
 
 const SUPABASE_URL = "https://xyz.supabase.co";
 
-class FakeStorage {
-  private readonly store = new Map<string, string>();
-
-  getItem(key: string): string | null {
-    return this.store.has(key) ? this.store.get(key)! : null;
-  }
-
-  setItem(key: string, value: string): void {
-    this.store.set(key, value);
-  }
-
-  removeItem(key: string): void {
-    this.store.delete(key);
-  }
-}
-
-function setupMockBrowserGlobals() {
-  const cookies: string[] = [];
-  const documentMock = {
-    get cookie() {
-      return cookies.join("; ");
-    },
-    set cookie(value: string) {
-      cookies.push(value);
-    },
-  };
-
-  const window = globalThis as typeof globalThis & {
-    window: typeof globalThis;
-    document: Document;
-    Storage: typeof Storage;
-  };
-
-  window.window = window as unknown as Window & typeof globalThis;
-  window.document = documentMock as unknown as Document;
-  window.Storage = FakeStorage as unknown as typeof Storage;
-
-  return { cookies, window };
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -415,6 +375,37 @@ describe("SupabaseMock", () => {
       expect(
         urlMatches(capturedEntries[0]!, "https://xyz.supabase.co/rest/v1/todos")
       ).toBe(true);
+    });
+  });
+
+  describe("mockCurrentUser()", () => {
+    it("registers the session installer for future page loads", async () => {
+      await mock.mockCurrentUser("alice@example.com");
+
+      expect(page.addInitScript).toHaveBeenCalledOnce();
+      expect(page.addInitScript).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({
+          sessionEmail: "alice@example.com",
+          authCookieKeys: ["sb-xyz-auth-token"],
+        })
+      );
+      expect(page.evaluate).not.toHaveBeenCalled();
+    });
+
+    it("applies the session immediately when the page is already loaded", async () => {
+      setUrl("https://app.example.com/dashboard");
+
+      await mock.mockCurrentUser("alice@example.com");
+
+      expect(page.evaluate).toHaveBeenCalledOnce();
+      expect(page.evaluate).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({
+          sessionEmail: "alice@example.com",
+          authCookieKeys: ["sb-xyz-auth-token"],
+        })
+      );
     });
   });
 });
