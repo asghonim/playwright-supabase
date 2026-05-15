@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { SupabaseMock } from "../supabase-mock.js";
+import {
+  SupabaseMock,
+  buildMockSession,
+} from "../supabase-mock.js";
 import type { Page, Route, Request } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
@@ -37,17 +40,91 @@ interface CapturedEntry {
 function makeFakePage(): {
   page: Page;
   capturedEntries: CapturedEntry[];
+  setUrl: (url: string) => void;
 } {
   const capturedEntries: CapturedEntry[] = [];
+  let currentUrl = "about:blank";
 
   const page = {
     route: vi.fn(async (predicate: UrlPredicate, handler: RouteHandler) => {
       capturedEntries.push({ predicate, handler });
     }),
     unroute: vi.fn().mockResolvedValue(undefined),
+    addInitScript: vi.fn().mockResolvedValue(undefined),
+    evaluate: vi.fn().mockResolvedValue(undefined),
+    url: vi.fn(() => currentUrl),
   } as unknown as Page;
 
-  return { page, capturedEntries };
+  return {
+    page,
+    capturedEntries,
+    setUrl: (url: string) => {
+      currentUrl = url;
+    },
+  };
+}
+
+function withMockBrowserGlobals(
+  callback: (context: { getCookie: (name: string) => string | undefined }) => void
+): void {
+  const originalWindow = globalThis.window;
+  const originalDocument = globalThis.document;
+  const originalStorage = globalThis.Storage;
+  const cookieJar = new Map<string, string>();
+
+  const documentStub = {
+    get cookie() {
+      return Array.from(cookieJar.entries())
+        .map(([name, value]) => `${name}=${value}`)
+        .join("; ");
+    },
+    set cookie(serializedCookie: string) {
+      const [cookieEntry, ...attributes] = serializedCookie.split(";").map((part) => part.trim());
+      const [name, ...valueParts] = cookieEntry.split("=");
+      const maxAge = attributes.find((attribute) => attribute.startsWith("Max-Age="));
+
+      if (maxAge === "Max-Age=0") {
+        cookieJar.delete(name);
+        return;
+      }
+
+      cookieJar.set(name, valueParts.join("="));
+    },
+  } as Document;
+
+  class FakeStorage {
+    getItem(key: string): string | null {
+      void key;
+      return null;
+    }
+
+    setItem(key: string, value: string): void {
+      void key;
+      void value;
+    }
+
+    removeItem(key: string): void {
+      void key;
+    }
+  }
+
+  Object.assign(globalThis, {
+    window: globalThis,
+    document: documentStub,
+    Storage: FakeStorage,
+  });
+
+  try {
+    callback({
+      getCookie: (name: string) => cookieJar.get(name),
+    });
+  } finally {
+    Object.assign(globalThis, {
+      window: originalWindow,
+      document: originalDocument,
+      Storage: originalStorage,
+    });
+  }
 }
 
 /** Returns true if the registered URL predicate matches the given URL string. */
@@ -65,11 +142,13 @@ describe("SupabaseMock", () => {
   let page: Page;
   let capturedEntries: CapturedEntry[];
   let mock: SupabaseMock;
+  let setUrl: (url: string) => void;
 
   beforeEach(() => {
     const fake = makeFakePage();
     page = fake.page;
     capturedEntries = fake.capturedEntries;
+    setUrl = fake.setUrl;
     mock = new SupabaseMock(page, { url: SUPABASE_URL });
   });
 
@@ -360,5 +439,103 @@ describe("SupabaseMock", () => {
         urlMatches(capturedEntries[0]!, "https://xyz.supabase.co/rest/v1/todos")
       ).toBe(true);
     });
+  });
+
+  describe("mockCurrentUser()", () => {
+    it("registers the session installer for future page loads", async () => {
+      await mock.mockCurrentUser("alice@example.com");
+
+      expect(page.addInitScript).toHaveBeenCalledOnce();
+      expect(page.addInitScript).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({
+          sessionEmail: "alice@example.com",
+          authCookieKeys: ["sb-xyz-auth-token"],
+        })
+      );
+      expect(page.evaluate).not.toHaveBeenCalled();
+    });
+
+    it("applies the session immediately when the page is already loaded", async () => {
+      setUrl("https://app.example.com/dashboard");
+
+      await mock.mockCurrentUser("alice@example.com");
+
+      expect(page.evaluate).toHaveBeenCalledOnce();
+      expect(page.evaluate).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({
+          sessionEmail: "alice@example.com",
+          authCookieKeys: ["sb-xyz-auth-token"],
+        })
+      );
+    });
+
+    it("accepts undefined to preserve the current session state", async () => {
+      await mock.mockCurrentUser(undefined);
+
+      expect(page.addInitScript).toHaveBeenCalledOnce();
+      expect(page.addInitScript).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({
+          sessionEmail: undefined,
+          authCookieKeys: ["sb-xyz-auth-token"],
+        })
+      );
+    });
+
+    it("clears all existing auth cookie chunks before writing the new session cookie", async () => {
+      await mock.mockCurrentUser("alice@example.com");
+
+      const [installer, payload] = vi.mocked(page.addInitScript).mock.calls[0] as [
+        (payload: { sessionEmail?: string | null; authCookieKeys?: string[] }) => void,
+        { sessionEmail?: string | null; authCookieKeys?: string[] },
+      ];
+
+      withMockBrowserGlobals(({ getCookie }) => {
+        for (let i = 0; i < 8; i += 1) {
+          document.cookie = `sb-xyz-auth-token.${i}=stale-${i}; Path=/; SameSite=Lax`;
+        }
+        document.cookie = "unrelated=value; Path=/; SameSite=Lax";
+
+        installer(payload);
+
+        for (let i = 0; i < 8; i += 1) {
+          expect(getCookie(`sb-xyz-auth-token.${i}`)).toBeUndefined();
+        }
+        expect(getCookie("sb-xyz-auth-token")).toMatch(/^base64-/);
+        expect(getCookie("unrelated")).toBe("value");
+      });
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildMockSession
+// ---------------------------------------------------------------------------
+
+describe("buildMockSession", () => {
+  it("sets access_token and refresh_token from email", () => {
+    const session = buildMockSession("alice@example.com");
+    expect(session.access_token).toBe("mock-access-token:alice@example.com");
+    expect(session.refresh_token).toBe("mock-refresh-token:alice@example.com");
+  });
+
+  it("sets token_type to bearer", () => {
+    const session = buildMockSession("alice@example.com");
+    expect(session.token_type).toBe("bearer");
+  });
+
+  it("sets expires_in to 3600", () => {
+    const session = buildMockSession("alice@example.com");
+    expect(session.expires_in).toBe(3600);
+  });
+
+  it("sets expires_at approximately one hour from now", () => {
+    const before = Math.floor(Date.now() / 1000) + 3600;
+    const session = buildMockSession("alice@example.com");
+    const after = Math.floor(Date.now() / 1000) + 3600;
+    expect(session.expires_at).toBeGreaterThanOrEqual(before);
+    expect(session.expires_at).toBeLessThanOrEqual(after);
   });
 });

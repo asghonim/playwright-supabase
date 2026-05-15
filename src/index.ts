@@ -17,7 +17,10 @@
 import { SupabaseMock } from "./supabase-mock.js";
 import type { SupabaseMockOptions, Page } from "./types.js";
 
-export { SupabaseMock } from "./supabase-mock.js";
+export {
+  SupabaseMock,
+  buildMockSession,
+} from "./supabase-mock.js";
 export { test, expect } from "./fixtures.js";
 export type {
   SupabaseMockOptions,
@@ -25,7 +28,7 @@ export type {
   RouteHandle,
   DatabaseMockBuilder,
   AuthMockBuilder,
-  StorageMockBuilder,
+  StorageMockBuilder
 } from "./types.js";
 export type { SupabaseFixtures, SupabaseFixtureOptions } from "./fixtures.js";
 
