@@ -112,6 +112,26 @@ export function buildMockSession(email: string) {
 }
 
 /**
+ * Returns the Supabase auth cookie key for a Supabase project URL.
+ *
+ * @example
+ * ```ts
+ * getSupabaseAuthCookieKeys("https://xyzcompany.supabase.co");
+ * // "sb-xyzcompany-auth-token"
+ * ```
+ */
+export function getSupabaseAuthCookieKeys(supabaseUrl: string | undefined) {
+  if (!supabaseUrl) return null;
+  try {
+    const { hostname } = new URL(supabaseUrl);
+    const projectRef = hostname.split(".")[0];
+    return projectRef ? `sb-${projectRef}-auth-token` : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The main mock controller. Use {@link createSupabaseMock} to obtain an
  * instance bound to a Playwright `Page`.
  */

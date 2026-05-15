@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { SupabaseMock, buildMockUser, buildMockSession } from "../supabase-mock.js";
+import {
+  SupabaseMock,
+  buildMockUser,
+  buildMockSession,
+  getSupabaseAuthCookieKeys,
+} from "../supabase-mock.js";
 import type { Page, Route, Request } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
@@ -447,5 +452,29 @@ describe("buildMockSession", () => {
   it("embeds the user built by buildMockUser", () => {
     const session = buildMockSession("alice@example.com");
     expect(session.user).toEqual(buildMockUser("alice@example.com"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getSupabaseAuthCookieKeys
+// ---------------------------------------------------------------------------
+
+describe("getSupabaseAuthCookieKeys", () => {
+  it("returns null for undefined URL", () => {
+    expect(getSupabaseAuthCookieKeys(undefined)).toBeNull();
+  });
+
+  it("returns a cookie key for a valid supabase URL", () => {
+    expect(getSupabaseAuthCookieKeys("https://xyzcompany.supabase.co")).toBe(
+      "sb-xyzcompany-auth-token"
+    );
+  });
+
+  it("returns null for invalid URL string", () => {
+    expect(getSupabaseAuthCookieKeys("not-a-url")).toBeNull();
+  });
+
+  it("returns null when projectRef cannot be derived", () => {
+    expect(getSupabaseAuthCookieKeys("https://.supabase.co")).toBeNull();
   });
 });
