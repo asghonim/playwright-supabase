@@ -13,6 +13,7 @@ interface FakeRoute {
   request: () => Request;
   fulfill: ReturnType<typeof vi.fn>;
   continue: ReturnType<typeof vi.fn>;
+  fallback: ReturnType<typeof vi.fn>;
 }
 
 function makeFakeRoute(method: string, rawUrl: string): FakeRoute {
@@ -24,6 +25,7 @@ function makeFakeRoute(method: string, rawUrl: string): FakeRoute {
       } as unknown as Request),
     fulfill: vi.fn().mockResolvedValue(undefined),
     continue: vi.fn().mockResolvedValue(undefined),
+    fallback: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -107,15 +109,31 @@ describe("SupabaseMock", () => {
       expect(route.continue).not.toHaveBeenCalled();
     });
 
-    it("calls route.continue() when the HTTP method does not match (POST on a select route)", async () => {
+    it("calls route.fallback() when the HTTP method does not match (POST on a select route)", async () => {
       await mock.database("todos").select();
 
       // A POST to the same URL should NOT be intercepted by the GET handler
       const route = makeFakeRoute("POST", `${SUPABASE_URL}/rest/v1/todos`);
       await capturedEntries[0]!.handler(route as unknown as Route);
 
-      expect(route.continue).toHaveBeenCalledOnce();
+      expect(route.fallback).toHaveBeenCalledOnce();
+      expect(route.continue).not.toHaveBeenCalled();
       expect(route.fulfill).not.toHaveBeenCalled();
+    });
+
+    it("allows sibling same-endpoint method mocks to run when registration order differs", async () => {
+      await mock.database("todos").insert({ body: { id: 1 } });
+      await mock.database("todos").select({ body: [{ id: 1 }] });
+
+      const route = makeFakeRoute("POST", `${SUPABASE_URL}/rest/v1/todos`);
+      await capturedEntries[1]!.handler(route as unknown as Route);
+      await capturedEntries[0]!.handler(route as unknown as Route);
+
+      expect(route.fallback).toHaveBeenCalledOnce();
+      expect(route.fulfill).toHaveBeenCalledOnce();
+      expect(route.fulfill).toHaveBeenCalledWith(
+        expect.objectContaining({ body: JSON.stringify({ id: 1 }) })
+      );
     });
 
     it("registers a POST route for insert", async () => {

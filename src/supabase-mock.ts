@@ -28,7 +28,7 @@ async function registerRoute(
 ): Promise<RouteHandle> {
   const handler = async (route: Route): Promise<void> => {
     if (method !== null && route.request().method().toUpperCase() !== method.toUpperCase()) {
-      await route.continue();
+      await route.fallback();
       return;
     }
 
