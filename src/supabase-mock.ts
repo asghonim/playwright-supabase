@@ -239,6 +239,7 @@ export function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeed
 export class SupabaseMock {
   private readonly page: Page;
   private readonly baseUrl: string;
+  private readonly supabaseAuthCookieKeys?: string[];
 
   constructor(page: Page, options: SupabaseMockOptions) {
     this.page = page;
@@ -249,6 +250,8 @@ export class SupabaseMock {
       url = url.slice(0, -1);
     }
     this.baseUrl = url;
+    const authCookieKey = getSupabaseAuthCookieKeys(this.baseUrl);
+    this.supabaseAuthCookieKeys = authCookieKey ? [authCookieKey] : undefined;
   }
 
   // ---------------------------------------------------------------------------
@@ -326,6 +329,20 @@ export class SupabaseMock {
       refreshToken: (res: MockResponseOptions = {}) =>
         registerRoute(this.page, matchAuth("token", "refresh_token"), "POST", res, {}),
     };
+  }
+
+  /**
+   * Seeds a mocked current user session into the page's auth storage.
+   */
+  async mockCurrentUser(page: Page, sessionEmail: string | null): Promise<void> {
+    const payload: AuthSpySeedPayload = {
+      sessionEmail,
+      authCookieKeys: this.supabaseAuthCookieKeys,
+    };
+    await page.addInitScript(installMockSession, payload);
+    if (page.url() !== "about:blank") {
+      await page.evaluate(installMockSession, payload);
+    }
   }
 
   // ---------------------------------------------------------------------------

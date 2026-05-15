@@ -43,17 +43,28 @@ interface CapturedEntry {
 function makeFakePage(): {
   page: Page;
   capturedEntries: CapturedEntry[];
+  setUrl: (url: string) => void;
 } {
   const capturedEntries: CapturedEntry[] = [];
+  let currentUrl = "about:blank";
 
   const page = {
     route: vi.fn(async (predicate: UrlPredicate, handler: RouteHandler) => {
       capturedEntries.push({ predicate, handler });
     }),
     unroute: vi.fn().mockResolvedValue(undefined),
+    addInitScript: vi.fn().mockResolvedValue(undefined),
+    evaluate: vi.fn().mockResolvedValue(undefined),
+    url: vi.fn(() => currentUrl),
   } as unknown as Page;
 
-  return { page, capturedEntries };
+  return {
+    page,
+    capturedEntries,
+    setUrl: (url: string) => {
+      currentUrl = url;
+    },
+  };
 }
 
 /** Returns true if the registered URL predicate matches the given URL string. */
@@ -111,11 +122,13 @@ describe("SupabaseMock", () => {
   let page: Page;
   let capturedEntries: CapturedEntry[];
   let mock: SupabaseMock;
+  let setUrl: (url: string) => void;
 
   beforeEach(() => {
     const fake = makeFakePage();
     page = fake.page;
     capturedEntries = fake.capturedEntries;
+    setUrl = fake.setUrl;
     mock = new SupabaseMock(page, { url: SUPABASE_URL });
   });
 
@@ -299,6 +312,31 @@ describe("SupabaseMock", () => {
           `${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`
         )
       ).toBe(true);
+    });
+  });
+
+  describe("mockCurrentUser()", () => {
+    it("adds an init script with the session payload", async () => {
+      await mock.mockCurrentUser(page, "alice@example.com");
+
+      expect(page.addInitScript).toHaveBeenCalledOnce();
+      expect(page.addInitScript).toHaveBeenCalledWith(installMockSession, {
+        sessionEmail: "alice@example.com",
+        authCookieKeys: ["sb-xyz-auth-token"],
+      });
+      expect(page.evaluate).not.toHaveBeenCalled();
+    });
+
+    it("evaluates the session installer when the page is already loaded", async () => {
+      setUrl("https://example.com/dashboard");
+
+      await mock.mockCurrentUser(page, "alice@example.com");
+
+      expect(page.evaluate).toHaveBeenCalledOnce();
+      expect(page.evaluate).toHaveBeenCalledWith(installMockSession, {
+        sessionEmail: "alice@example.com",
+        authCookieKeys: ["sb-xyz-auth-token"],
+      });
     });
   });
 
