@@ -196,11 +196,11 @@ function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeedPayload
     });
   };
 
-  globalScope.__squadsMockSupabaseSession =
+  globalScope.__playwrightSupabaseMockSession =
     sessionEmail === null ? null : buildStoredSession(sessionEmail);
-  syncSessionCookies(globalScope.__squadsMockSupabaseSession);
+  syncSessionCookies(globalScope.__playwrightSupabaseMockSession);
 
-  if (globalScope.__squadsAuthStorageMockInstalled) return;
+  if (globalScope.__playwrightSupabaseAuthStorageInstalled) return;
 
   const origGet = Storage.prototype.getItem;
   const origSet = Storage.prototype.setItem;
@@ -209,7 +209,7 @@ function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeedPayload
   Storage.prototype.getItem = function (key: string) {
     if (isSupabaseAuthTokenKey(key)) {
       if (key.endsWith("-user")) return null;
-      const session = (window as MockApiWindow).__squadsMockSupabaseSession;
+      const session = (window as MockApiWindow).__playwrightSupabaseMockSession;
       return session ? JSON.stringify(session) : null;
     }
     return origGet.call(this, key);
@@ -219,11 +219,13 @@ function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeedPayload
     if (isSupabaseAuthTokenKey(key)) {
       if (!key.endsWith("-user")) {
         try {
-          (window as MockApiWindow).__squadsMockSupabaseSession = JSON.parse(value) as StoredSession;
+          (window as MockApiWindow).__playwrightSupabaseMockSession = JSON.parse(
+            value
+          ) as StoredSession;
         } catch {
-          (window as MockApiWindow).__squadsMockSupabaseSession = null;
+          (window as MockApiWindow).__playwrightSupabaseMockSession = null;
         }
-        syncSessionCookies((window as MockApiWindow).__squadsMockSupabaseSession ?? null);
+        syncSessionCookies((window as MockApiWindow).__playwrightSupabaseMockSession ?? null);
       }
       return;
     }
@@ -233,7 +235,7 @@ function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeedPayload
   Storage.prototype.removeItem = function (key: string) {
     if (isSupabaseAuthTokenKey(key)) {
       if (!key.endsWith("-user")) {
-        (window as MockApiWindow).__squadsMockSupabaseSession = null;
+        (window as MockApiWindow).__playwrightSupabaseMockSession = null;
         syncSessionCookies(null);
       }
       return;
@@ -241,7 +243,7 @@ function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeedPayload
     return origRemove.call(this, key);
   };
 
-  globalScope.__squadsAuthStorageMockInstalled = true;
+  globalScope.__playwrightSupabaseAuthStorageInstalled = true;
 }
 
 /**
