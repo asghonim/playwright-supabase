@@ -52,6 +52,66 @@ async function registerRoute(
 }
 
 /**
+ * Builds a mock Supabase user object from an email address.
+ *
+ * The `username` is derived from the local part of the email, and the
+ * `name` is a title-cased version split on `.`, `_`, or `-` separators.
+ *
+ * @example
+ * ```ts
+ * buildMockUser("jane.doe@example.com");
+ * // { id: "mock-user:jane.doe@example.com", username: "jane.doe", name: "Jane Doe", ... }
+ * ```
+ */
+export function buildMockUser(email: string) {
+  const username = email.split("@")[0] || "user";
+  const name =
+    username
+      .split(/[._-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ") || username;
+
+  return {
+    id: `mock-user:${email}`,
+    aud: "authenticated",
+    role: "authenticated",
+    email,
+    username,
+    name,
+    app_metadata: { provider: "email", providers: ["email"] },
+    user_metadata: { username, name },
+    identities: [],
+    created_at: new Date(0).toISOString(),
+  };
+}
+
+/**
+ * Builds a mock Supabase session object from an email address.
+ *
+ * The session includes a mock access token, refresh token, and a user object
+ * built via {@link buildMockUser}. The session expires one hour from the time
+ * this function is called.
+ *
+ * @example
+ * ```ts
+ * buildMockSession("jane.doe@example.com");
+ * // { access_token: "mock-access-token:jane.doe@example.com", user: { ... }, ... }
+ * ```
+ */
+export function buildMockSession(email: string) {
+  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60;
+  return {
+    access_token: `mock-access-token:${email}`,
+    refresh_token: `mock-refresh-token:${email}`,
+    token_type: "bearer",
+    expires_in: 60 * 60,
+    expires_at: expiresAt,
+    user: buildMockUser(email),
+  };
+}
+
+/**
  * The main mock controller. Use {@link createSupabaseMock} to obtain an
  * instance bound to a Playwright `Page`.
  */

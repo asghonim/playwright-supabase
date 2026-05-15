@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { SupabaseMock } from "../supabase-mock.js";
+import { SupabaseMock, buildMockUser, buildMockSession } from "../supabase-mock.js";
 import type { Page, Route, Request } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
@@ -360,5 +360,92 @@ describe("SupabaseMock", () => {
         urlMatches(capturedEntries[0]!, "https://xyz.supabase.co/rest/v1/todos")
       ).toBe(true);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildMockUser
+// ---------------------------------------------------------------------------
+
+describe("buildMockUser", () => {
+  it("derives username from the local part of the email", () => {
+    const user = buildMockUser("jane.doe@example.com");
+    expect(user.username).toBe("jane.doe");
+  });
+
+  it("title-cases name parts split on dots", () => {
+    const user = buildMockUser("jane.doe@example.com");
+    expect(user.name).toBe("Jane Doe");
+  });
+
+  it("title-cases name parts split on underscores", () => {
+    const user = buildMockUser("john_smith@example.com");
+    expect(user.name).toBe("John Smith");
+  });
+
+  it("title-cases name parts split on hyphens", () => {
+    const user = buildMockUser("mary-anne@example.com");
+    expect(user.name).toBe("Mary Anne");
+  });
+
+  it("sets id to mock-user:<email>", () => {
+    const user = buildMockUser("alice@example.com");
+    expect(user.id).toBe("mock-user:alice@example.com");
+  });
+
+  it("sets fixed auth fields", () => {
+    const user = buildMockUser("alice@example.com");
+    expect(user.aud).toBe("authenticated");
+    expect(user.role).toBe("authenticated");
+    expect(user.email).toBe("alice@example.com");
+    expect(user.identities).toEqual([]);
+    expect(user.created_at).toBe(new Date(0).toISOString());
+  });
+
+  it("sets app_metadata and user_metadata", () => {
+    const user = buildMockUser("alice@example.com");
+    expect(user.app_metadata).toEqual({ provider: "email", providers: ["email"] });
+    expect(user.user_metadata).toEqual({ username: "alice", name: "Alice" });
+  });
+
+  it("uses 'user' as username fallback when email has no local part", () => {
+    // Pathological case: email starts with '@'
+    const user = buildMockUser("@example.com");
+    expect(user.username).toBe("user");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildMockSession
+// ---------------------------------------------------------------------------
+
+describe("buildMockSession", () => {
+  it("sets access_token and refresh_token from email", () => {
+    const session = buildMockSession("alice@example.com");
+    expect(session.access_token).toBe("mock-access-token:alice@example.com");
+    expect(session.refresh_token).toBe("mock-refresh-token:alice@example.com");
+  });
+
+  it("sets token_type to bearer", () => {
+    const session = buildMockSession("alice@example.com");
+    expect(session.token_type).toBe("bearer");
+  });
+
+  it("sets expires_in to 3600", () => {
+    const session = buildMockSession("alice@example.com");
+    expect(session.expires_in).toBe(3600);
+  });
+
+  it("sets expires_at approximately one hour from now", () => {
+    const before = Math.floor(Date.now() / 1000) + 3600;
+    const session = buildMockSession("alice@example.com");
+    const after = Math.floor(Date.now() / 1000) + 3600;
+    expect(session.expires_at).toBeGreaterThanOrEqual(before);
+    expect(session.expires_at).toBeLessThanOrEqual(after);
+  });
+
+  it("embeds the user built by buildMockUser", () => {
+    const session = buildMockSession("alice@example.com");
+    expect(session.user).toEqual(buildMockUser("alice@example.com"));
   });
 });
