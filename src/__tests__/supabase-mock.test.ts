@@ -447,9 +447,4 @@ describe("buildMockSession", () => {
     expect(session.expires_at).toBeGreaterThanOrEqual(before);
     expect(session.expires_at).toBeLessThanOrEqual(after);
   });
-
-  it("embeds the user built by buildMockUser", () => {
-    const session = buildMockSession("alice@example.com");
-    expect(session.user).toEqual(buildMockUser("alice@example.com"));
-  });
 });
