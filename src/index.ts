@@ -22,6 +22,7 @@ export {
   buildMockUser,
   buildMockSession,
   getSupabaseAuthCookieKeys,
+  installMockSession,
 } from "./supabase-mock.js";
 export { test, expect } from "./fixtures.js";
 export type {
@@ -31,6 +32,7 @@ export type {
   DatabaseMockBuilder,
   AuthMockBuilder,
   StorageMockBuilder,
+  AuthSpySeedPayload,
 } from "./types.js";
 export type { SupabaseFixtures, SupabaseFixtureOptions } from "./fixtures.js";
 

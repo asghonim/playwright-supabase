@@ -6,6 +6,7 @@ import type {
   DatabaseMockBuilder,
   AuthMockBuilder,
   StorageMockBuilder,
+  AuthSpySeedPayload,
 } from "./types.js";
 
 const DEFAULT_HEADERS: Record<string, string> = {
@@ -129,6 +130,106 @@ export function getSupabaseAuthCookieKeys(supabaseUrl: string | undefined) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Installs a mocked Supabase auth session into browser storage and cookies.
+ */
+export function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeedPayload) {
+  if (sessionEmail === undefined) return;
+
+  const buildStoredSession = (email: string) => ({
+    access_token: `mock-access-token:${email}`,
+    refresh_token: `mock-refresh-token:${email}`,
+    token_type: "bearer",
+    expires_in: 60 * 60,
+    expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
+  });
+
+  type StoredSession = ReturnType<typeof buildStoredSession>;
+  type MockApiWindow = Window &
+    typeof globalThis & {
+      __squadsMockSupabaseSession?: StoredSession | null;
+      __squadsAuthStorageMockInstalled?: boolean;
+    };
+
+  const globalScope = window as MockApiWindow;
+
+  const isSupabaseAuthTokenKey = (key: string) =>
+    key.startsWith("sb-") && key.includes("-auth-token");
+
+  const encodeBase64Url = (value: string) => {
+    const bytes = new TextEncoder().encode(value);
+    let binary = "";
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  };
+
+  const writeCookie = (name: string, value: string | null) => {
+    const maxAge = value === null ? 0 : 400 * 24 * 60 * 60;
+    document.cookie = `${name}=${value ?? ""}; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
+  };
+
+  const syncSessionCookies = (session: StoredSession | null) => {
+    authCookieKeys?.forEach((cookieName) => {
+      writeCookie(cookieName, null);
+      for (let i = 0; i < 5; i++) {
+        writeCookie(`${cookieName}.${i}`, null);
+      }
+      if (session) {
+        writeCookie(cookieName, `base64-${encodeBase64Url(JSON.stringify(session))}`);
+      }
+    });
+  };
+
+  globalScope.__squadsMockSupabaseSession =
+    sessionEmail === null ? null : buildStoredSession(sessionEmail);
+  syncSessionCookies(globalScope.__squadsMockSupabaseSession);
+
+  if (globalScope.__squadsAuthStorageMockInstalled) return;
+
+  const origGet = Storage.prototype.getItem;
+  const origSet = Storage.prototype.setItem;
+  const origRemove = Storage.prototype.removeItem;
+
+  Storage.prototype.getItem = function (key: string) {
+    if (isSupabaseAuthTokenKey(key)) {
+      if (key.endsWith("-user")) return null;
+      const session = (window as MockApiWindow).__squadsMockSupabaseSession;
+      return session ? JSON.stringify(session) : null;
+    }
+    return origGet.call(this, key);
+  };
+
+  Storage.prototype.setItem = function (key: string, value: string) {
+    if (isSupabaseAuthTokenKey(key)) {
+      if (!key.endsWith("-user")) {
+        try {
+          (window as MockApiWindow).__squadsMockSupabaseSession = JSON.parse(value) as StoredSession;
+        } catch {
+          (window as MockApiWindow).__squadsMockSupabaseSession = null;
+        }
+        syncSessionCookies((window as MockApiWindow).__squadsMockSupabaseSession ?? null);
+      }
+      return;
+    }
+    return origSet.call(this, key, value);
+  };
+
+  Storage.prototype.removeItem = function (key: string) {
+    if (isSupabaseAuthTokenKey(key)) {
+      if (!key.endsWith("-user")) {
+        (window as MockApiWindow).__squadsMockSupabaseSession = null;
+        syncSessionCookies(null);
+      }
+      return;
+    }
+    return origRemove.call(this, key);
+  };
+
+  globalScope.__squadsAuthStorageMockInstalled = true;
 }
 
 /**
