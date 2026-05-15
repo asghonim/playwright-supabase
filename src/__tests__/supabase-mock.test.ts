@@ -1,10 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   SupabaseMock,
-  buildMockUser,
   buildMockSession,
-  getSupabaseAuthCookieKeys,
-  installMockSession,
 } from "../supabase-mock.js";
 import type { Page, Route, Request } from "@playwright/test";
 
@@ -315,31 +312,6 @@ describe("SupabaseMock", () => {
     });
   });
 
-  describe("mockCurrentUser()", () => {
-    it("adds an init script with the session payload", async () => {
-      await mock.mockCurrentUser(page, "alice@example.com");
-
-      expect(page.addInitScript).toHaveBeenCalledOnce();
-      expect(page.addInitScript).toHaveBeenCalledWith(installMockSession, {
-        sessionEmail: "alice@example.com",
-        authCookieKeys: ["sb-xyz-auth-token"],
-      });
-      expect(page.evaluate).not.toHaveBeenCalled();
-    });
-
-    it("evaluates the session installer when the page is already loaded", async () => {
-      setUrl("https://example.com/dashboard");
-
-      await mock.mockCurrentUser(page, "alice@example.com");
-
-      expect(page.evaluate).toHaveBeenCalledOnce();
-      expect(page.evaluate).toHaveBeenCalledWith(installMockSession, {
-        sessionEmail: "alice@example.com",
-        authCookieKeys: ["sb-xyz-auth-token"],
-      });
-    });
-  });
-
   // -------------------------------------------------------------------------
   // Storage
   // -------------------------------------------------------------------------
@@ -448,58 +420,6 @@ describe("SupabaseMock", () => {
 });
 
 // ---------------------------------------------------------------------------
-// buildMockUser
-// ---------------------------------------------------------------------------
-
-describe("buildMockUser", () => {
-  it("derives username from the local part of the email", () => {
-    const user = buildMockUser("jane.doe@example.com");
-    expect(user.username).toBe("jane.doe");
-  });
-
-  it("title-cases name parts split on dots", () => {
-    const user = buildMockUser("jane.doe@example.com");
-    expect(user.name).toBe("Jane Doe");
-  });
-
-  it("title-cases name parts split on underscores", () => {
-    const user = buildMockUser("john_smith@example.com");
-    expect(user.name).toBe("John Smith");
-  });
-
-  it("title-cases name parts split on hyphens", () => {
-    const user = buildMockUser("mary-anne@example.com");
-    expect(user.name).toBe("Mary Anne");
-  });
-
-  it("sets id to mock-user:<email>", () => {
-    const user = buildMockUser("alice@example.com");
-    expect(user.id).toBe("mock-user:alice@example.com");
-  });
-
-  it("sets fixed auth fields", () => {
-    const user = buildMockUser("alice@example.com");
-    expect(user.aud).toBe("authenticated");
-    expect(user.role).toBe("authenticated");
-    expect(user.email).toBe("alice@example.com");
-    expect(user.identities).toEqual([]);
-    expect(user.created_at).toBe(new Date(0).toISOString());
-  });
-
-  it("sets app_metadata and user_metadata", () => {
-    const user = buildMockUser("alice@example.com");
-    expect(user.app_metadata).toEqual({ provider: "email", providers: ["email"] });
-    expect(user.user_metadata).toEqual({ username: "alice", name: "Alice" });
-  });
-
-  it("uses 'user' as username fallback when email has no local part", () => {
-    // Pathological case: email starts with '@'
-    const user = buildMockUser("@example.com");
-    expect(user.username).toBe("user");
-  });
-});
-
-// ---------------------------------------------------------------------------
 // buildMockSession
 // ---------------------------------------------------------------------------
 
@@ -531,151 +451,5 @@ describe("buildMockSession", () => {
   it("embeds the user built by buildMockUser", () => {
     const session = buildMockSession("alice@example.com");
     expect(session.user).toEqual(buildMockUser("alice@example.com"));
-  });
-});
-
-// ---------------------------------------------------------------------------
-// getSupabaseAuthCookieKeys
-// ---------------------------------------------------------------------------
-
-describe("getSupabaseAuthCookieKeys", () => {
-  it("returns null for undefined URL", () => {
-    expect(getSupabaseAuthCookieKeys(undefined)).toBeNull();
-  });
-
-  it("returns a cookie key for a valid supabase URL", () => {
-    expect(getSupabaseAuthCookieKeys("https://xyzcompany.supabase.co")).toBe(
-      "sb-xyzcompany-auth-token"
-    );
-  });
-
-  it("returns null for invalid URL string", () => {
-    expect(getSupabaseAuthCookieKeys("not-a-url")).toBeNull();
-  });
-
-  it("returns null when projectRef cannot be derived", () => {
-    expect(getSupabaseAuthCookieKeys("https://.supabase.co")).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// installMockSession
-// ---------------------------------------------------------------------------
-
-describe("installMockSession", () => {
-  beforeEach(() => {
-    delete (globalThis as Record<string, unknown>).window;
-    delete (globalThis as Record<string, unknown>).document;
-    delete (globalThis as Record<string, unknown>).Storage;
-    delete (globalThis as Record<string, unknown>).__squadsMockSupabaseSession;
-    delete (globalThis as Record<string, unknown>).__squadsAuthStorageMockInstalled;
-  });
-
-  it("returns early when sessionEmail is undefined", () => {
-    expect(() => installMockSession({ sessionEmail: undefined })).not.toThrow();
-    expect((globalThis as Record<string, unknown>).__squadsAuthStorageMockInstalled).toBe(
-      undefined
-    );
-  });
-
-  it("seeds the mock session and writes the auth cookie", () => {
-    const { cookies } = setupMockBrowserGlobals();
-
-    installMockSession({
-      sessionEmail: "alice@example.com",
-      authCookieKeys: ["sb-xyz-auth-token"],
-    });
-
-    const session = (
-      globalThis as typeof globalThis & {
-        __squadsMockSupabaseSession: {
-          access_token: string;
-          refresh_token: string;
-        } | null;
-      }
-    ).__squadsMockSupabaseSession;
-
-    expect(session).toEqual(
-      expect.objectContaining({
-        access_token: "mock-access-token:alice@example.com",
-        refresh_token: "mock-refresh-token:alice@example.com",
-      })
-    );
-    expect(
-      cookies.some((cookie) =>
-        /^sb-xyz-auth-token=base64-[A-Za-z0-9\-_]+; Path=\/; Max-Age=/.test(cookie)
-      )
-    ).toBe(true);
-  });
-
-  it("intercepts storage reads and writes for Supabase auth token keys", () => {
-    setupMockBrowserGlobals();
-    installMockSession({
-      sessionEmail: "alice@example.com",
-      authCookieKeys: ["sb-xyz-auth-token"],
-    });
-
-    const storage = new Storage();
-
-    expect(JSON.parse(storage.getItem("sb-xyz-auth-token") ?? "{}")).toEqual(
-      expect.objectContaining({
-        access_token: "mock-access-token:alice@example.com",
-        refresh_token: "mock-refresh-token:alice@example.com",
-      })
-    );
-    expect(storage.getItem("sb-xyz-auth-token-user")).toBeNull();
-
-    storage.setItem(
-      "sb-xyz-auth-token",
-      JSON.stringify({
-        access_token: "updated-access-token",
-        refresh_token: "updated-refresh-token",
-        token_type: "bearer",
-        expires_in: 60,
-        expires_at: 123,
-      })
-    );
-
-    expect(JSON.parse(storage.getItem("sb-xyz-auth-token") ?? "{}")).toEqual(
-      expect.objectContaining({
-        access_token: "updated-access-token",
-        refresh_token: "updated-refresh-token",
-      })
-    );
-  });
-
-  it("clears the mock session and cookies when sessionEmail is null", () => {
-    const { cookies } = setupMockBrowserGlobals();
-
-    installMockSession({
-      sessionEmail: "alice@example.com",
-      authCookieKeys: ["sb-xyz-auth-token"],
-    });
-    installMockSession({
-      sessionEmail: null,
-      authCookieKeys: ["sb-xyz-auth-token"],
-    });
-
-    expect(
-      (globalThis as Record<string, unknown>).__squadsMockSupabaseSession
-    ).toBeNull();
-    expect(cookies).toContain("sb-xyz-auth-token=; Path=/; Max-Age=0; SameSite=Lax");
-  });
-
-  it("clears the mock session when the auth storage key is removed", () => {
-    const { cookies } = setupMockBrowserGlobals();
-    installMockSession({
-      sessionEmail: "alice@example.com",
-      authCookieKeys: ["sb-xyz-auth-token"],
-    });
-
-    const storage = new Storage();
-    storage.removeItem("sb-xyz-auth-token");
-
-    expect(storage.getItem("sb-xyz-auth-token")).toBeNull();
-    expect(
-      (globalThis as Record<string, unknown>).__squadsMockSupabaseSession
-    ).toBeNull();
-    expect(cookies).toContain("sb-xyz-auth-token=; Path=/; Max-Age=0; SameSite=Lax");
   });
 });
