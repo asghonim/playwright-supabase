@@ -129,11 +129,11 @@ export function buildMockSession(email: string) {
  *
  * @example
  * ```ts
- * getSupabaseAuthCookieKeys("https://xyzcompany.supabase.co");
+ * getSupabaseAuthCookieKey("https://xyzcompany.supabase.co");
  * // "sb-xyzcompany-auth-token"
  * ```
  */
-function getSupabaseAuthCookieKeys(supabaseUrl: string | undefined) {
+function getSupabaseAuthCookieKey(supabaseUrl: string | undefined) {
   if (!supabaseUrl) return null;
   try {
     const { hostname } = new URL(supabaseUrl);
@@ -267,7 +267,7 @@ export class SupabaseMock {
       url = url.slice(0, -1);
     }
     this.baseUrl = url;
-    const authCookieKey = getSupabaseAuthCookieKeys(this.baseUrl);
+    const authCookieKey = getSupabaseAuthCookieKey(this.baseUrl);
     this.supabaseAuthCookieKeys = authCookieKey ? [authCookieKey] : undefined;
   }
 
