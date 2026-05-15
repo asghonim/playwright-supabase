@@ -28,8 +28,7 @@ export type {
   RouteHandle,
   DatabaseMockBuilder,
   AuthMockBuilder,
-  StorageMockBuilder,
-  AuthSpySeedPayload,
+  StorageMockBuilder
 } from "./types.js";
 export type { SupabaseFixtures, SupabaseFixtureOptions } from "./fixtures.js";
 
