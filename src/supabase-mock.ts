@@ -156,6 +156,9 @@ function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeedPayload
     token_type: "bearer",
     expires_in: 60 * 60,
     expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
+    user: {
+      email,
+    },
   });
 
   type StoredSession = ReturnType<typeof buildStoredSession>;
