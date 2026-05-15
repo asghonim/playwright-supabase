@@ -119,7 +119,6 @@ export interface StorageMockBuilder {
   remove(response?: MockResponseOptions): Promise<RouteHandle>;
 }
 
-
 /**
  * Playwright `Page` type re-exported for convenience.
  * @internal

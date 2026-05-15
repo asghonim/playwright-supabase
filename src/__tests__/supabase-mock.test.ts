@@ -407,6 +407,19 @@ describe("SupabaseMock", () => {
         })
       );
     });
+
+    it("accepts undefined to preserve the current session state", async () => {
+      await mock.mockCurrentUser(undefined);
+
+      expect(page.addInitScript).toHaveBeenCalledOnce();
+      expect(page.addInitScript).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({
+          sessionEmail: undefined,
+          authCookieKeys: ["sb-xyz-auth-token"],
+        })
+      );
+    });
   });
 });
 

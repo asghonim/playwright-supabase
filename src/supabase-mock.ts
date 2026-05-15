@@ -348,7 +348,7 @@ export class SupabaseMock {
   /**
    * Seeds a mocked current user session into the page's auth storage.
    */
-  async mockCurrentUser(sessionEmail: string | null): Promise<void> {
+  async mockCurrentUser(sessionEmail: string | null | undefined): Promise<void> {
     const payload: AuthSpySeedPayload = {
       sessionEmail,
       authCookieKeys: this.supabaseAuthCookieKeys,
