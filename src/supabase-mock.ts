@@ -150,6 +150,9 @@ function getSupabaseAuthCookieKey(supabaseUrl: string | undefined) {
 function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeedPayload) {
   if (sessionEmail === undefined) return;
 
+  // Bound cookie cleanup retries in case a browser refuses to remove a cookie.
+  const MAX_COOKIE_CLEAR_ATTEMPTS = 100;
+
   const buildStoredSession = (email: string) => ({
     access_token: `mock-access-token:${email}`,
     refresh_token: `mock-refresh-token:${email}`,
@@ -199,7 +202,7 @@ function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeedPayload
 
       let clearPasses = 0;
       let chunkCookieNames = getCookieNames().filter((name) => name.startsWith(`${cookieName}.`));
-      while (chunkCookieNames.length > 0 && clearPasses < 100) {
+      while (chunkCookieNames.length > 0 && clearPasses < MAX_COOKIE_CLEAR_ATTEMPTS) {
         chunkCookieNames.forEach((name) => {
           writeCookie(name, null);
         });
