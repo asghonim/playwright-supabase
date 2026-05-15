@@ -19,10 +19,7 @@ import type { SupabaseMockOptions, Page } from "./types.js";
 
 export {
   SupabaseMock,
-  buildMockUser,
   buildMockSession,
-  getSupabaseAuthCookieKeys,
-  installMockSession,
 } from "./supabase-mock.js";
 export { test, expect } from "./fixtures.js";
 export type {
