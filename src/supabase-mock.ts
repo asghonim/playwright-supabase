@@ -188,11 +188,23 @@ function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeedPayload
   };
 
   const syncSessionCookies = (session: StoredSession | null) => {
+    const getCookieNames = () =>
+      document.cookie
+        .split(/;\s*/)
+        .map((cookie) => cookie.split("=")[0])
+        .filter(Boolean);
+
     authCookieKeys?.forEach((cookieName) => {
       writeCookie(cookieName, null);
-      for (let i = 0; i < 5; i++) {
-        writeCookie(`${cookieName}.${i}`, null);
+
+      let chunkCookieNames = getCookieNames().filter((name) => name.startsWith(`${cookieName}.`));
+      while (chunkCookieNames.length > 0) {
+        chunkCookieNames.forEach((name) => {
+          writeCookie(name, null);
+        });
+        chunkCookieNames = getCookieNames().filter((name) => name.startsWith(`${cookieName}.`));
       }
+
       if (session) {
         writeCookie(cookieName, `base64-${encodeBase64Url(JSON.stringify(session))}`);
       }

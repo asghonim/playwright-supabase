@@ -64,6 +64,63 @@ function makeFakePage(): {
   };
 }
 
+function withMockBrowserGlobals(
+  callback: (context: { getCookie: (name: string) => string | undefined }) => void
+): void {
+  const originalWindow = globalThis.window;
+  const originalDocument = globalThis.document;
+  const originalStorage = globalThis.Storage;
+  const cookieJar = new Map<string, string>();
+
+  const documentStub = {
+    get cookie() {
+      return Array.from(cookieJar.entries())
+        .map(([name, value]) => `${name}=${value}`)
+        .join("; ");
+    },
+    set cookie(serializedCookie: string) {
+      const [cookieEntry, ...attributes] = serializedCookie.split(";").map((part) => part.trim());
+      const [name, ...valueParts] = cookieEntry.split("=");
+      const maxAge = attributes.find((attribute) => attribute.startsWith("Max-Age="));
+
+      if (maxAge === "Max-Age=0") {
+        cookieJar.delete(name);
+        return;
+      }
+
+      cookieJar.set(name, valueParts.join("="));
+    },
+  } as Document;
+
+  class FakeStorage {
+    getItem(): string | null {
+      return null;
+    }
+
+    setItem(): void {}
+
+    removeItem(): void {}
+  }
+
+  Object.assign(globalThis, {
+    window: globalThis,
+    document: documentStub,
+    Storage: FakeStorage,
+  });
+
+  try {
+    callback({
+      getCookie: (name: string) => cookieJar.get(name),
+    });
+  } finally {
+    Object.assign(globalThis, {
+      window: originalWindow,
+      document: originalDocument,
+      Storage: originalStorage,
+    });
+  }
+}
+
 /** Returns true if the registered URL predicate matches the given URL string. */
 function urlMatches(entry: CapturedEntry, url: string): boolean {
   return entry.predicate(new URL(url));
@@ -419,6 +476,30 @@ describe("SupabaseMock", () => {
           authCookieKeys: ["sb-xyz-auth-token"],
         })
       );
+    });
+
+    it("clears all existing auth cookie chunks before writing the new session cookie", async () => {
+      await mock.mockCurrentUser("alice@example.com");
+
+      const [installer, payload] = vi.mocked(page.addInitScript).mock.calls[0] as [
+        (payload: { sessionEmail?: string | null; authCookieKeys?: string[] }) => void,
+        { sessionEmail?: string | null; authCookieKeys?: string[] },
+      ];
+
+      withMockBrowserGlobals(({ getCookie }) => {
+        for (let i = 0; i < 8; i += 1) {
+          document.cookie = `sb-xyz-auth-token.${i}=stale-${i}; Path=/; SameSite=Lax`;
+        }
+        document.cookie = "unrelated=value; Path=/; SameSite=Lax";
+
+        installer(payload);
+
+        for (let i = 0; i < 8; i += 1) {
+          expect(getCookie(`sb-xyz-auth-token.${i}`)).toBeUndefined();
+        }
+        expect(getCookie("sb-xyz-auth-token")).toMatch(/^base64-/);
+        expect(getCookie("unrelated")).toBe("value");
+      });
     });
   });
 });
