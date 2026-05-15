@@ -197,11 +197,13 @@ function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeedPayload
     authCookieKeys?.forEach((cookieName) => {
       writeCookie(cookieName, null);
 
+      let clearPasses = 0;
       let chunkCookieNames = getCookieNames().filter((name) => name.startsWith(`${cookieName}.`));
-      while (chunkCookieNames.length > 0) {
+      while (chunkCookieNames.length > 0 && clearPasses < 100) {
         chunkCookieNames.forEach((name) => {
           writeCookie(name, null);
         });
+        clearPasses += 1;
         chunkCookieNames = getCookieNames().filter((name) => name.startsWith(`${cookieName}.`));
       }
 

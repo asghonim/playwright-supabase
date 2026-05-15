@@ -93,13 +93,19 @@ function withMockBrowserGlobals(
   } as Document;
 
   class FakeStorage {
-    getItem(): string | null {
+    getItem(key: string): string | null {
+      void key;
       return null;
     }
 
-    setItem(): void {}
+    setItem(key: string, value: string): void {
+      void key;
+      void value;
+    }
 
-    removeItem(): void {}
+    removeItem(key: string): void {
+      void key;
+    }
   }
 
   Object.assign(globalThis, {
