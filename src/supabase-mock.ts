@@ -161,8 +161,8 @@ function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeedPayload
   type StoredSession = ReturnType<typeof buildStoredSession>;
   type MockApiWindow = Window &
     typeof globalThis & {
-      __squadsMockSupabaseSession?: StoredSession | null;
-      __squadsAuthStorageMockInstalled?: boolean;
+      __playwrightSupabaseMockSession?: StoredSession | null;
+      __playwrightSupabaseAuthStorageInstalled?: boolean;
     };
 
   const globalScope = window as MockApiWindow;
