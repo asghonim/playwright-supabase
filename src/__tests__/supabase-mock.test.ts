@@ -93,6 +93,16 @@ describe("SupabaseMock", () => {
       expect(page.unroute).toHaveBeenCalledOnce();
     });
 
+    it("does not match unrelated tables that share a prefix while still allowing query strings", async () => {
+      await mock.database("todos").select({ body: [] });
+
+      expect(urlMatches(capturedEntries[0]!, `${SUPABASE_URL}/rest/v1/todos?id=eq.1`)).toBe(true);
+      expect(urlMatches(capturedEntries[0]!, `${SUPABASE_URL}/rest/v1/todos_archive`)).toBe(
+        false
+      );
+      expect(urlMatches(capturedEntries[0]!, `${SUPABASE_URL}/rest/v1/todos2`)).toBe(false);
+    });
+
     it("fulfills a matching GET request with the provided body", async () => {
       const body = [{ id: 1, title: "Buy milk" }];
       await mock.database("todos").select({ body });
