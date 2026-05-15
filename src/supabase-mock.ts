@@ -84,8 +84,9 @@ export class SupabaseMock {
    */
   database(table: string): DatabaseMockBuilder {
     const base = this.baseUrl;
-    const prefix = `${base}/rest/v1/${table}`;
-    const matchTable = (url: URL) => url.href.startsWith(prefix);
+    const tableUrl = new URL(`${base}/rest/v1/${table}`);
+    const matchTable = (url: URL) =>
+      url.origin === tableUrl.origin && url.pathname === tableUrl.pathname;
 
     return {
       select: (res: MockResponseOptions = {}) =>
