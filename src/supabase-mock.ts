@@ -64,7 +64,7 @@ async function registerRoute(
  * // { id: "mock-user:jane.doe@example.com", username: "jane.doe", name: "Jane Doe", ... }
  * ```
  */
-export function buildMockUser(email: string) {
+function buildMockUser(email: string) {
   const username = email.split("@")[0] || "user";
   const name =
     username
@@ -121,7 +121,7 @@ export function buildMockSession(email: string) {
  * // "sb-xyzcompany-auth-token"
  * ```
  */
-export function getSupabaseAuthCookieKeys(supabaseUrl: string | undefined) {
+function getSupabaseAuthCookieKeys(supabaseUrl: string | undefined) {
   if (!supabaseUrl) return null;
   try {
     const { hostname } = new URL(supabaseUrl);
@@ -135,7 +135,7 @@ export function getSupabaseAuthCookieKeys(supabaseUrl: string | undefined) {
 /**
  * Installs a mocked Supabase auth session into browser storage and cookies.
  */
-export function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeedPayload) {
+function installMockSession({ sessionEmail, authCookieKeys }: AuthSpySeedPayload) {
   if (sessionEmail === undefined) return;
 
   const buildStoredSession = (email: string) => ({
