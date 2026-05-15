@@ -119,21 +119,6 @@ export interface StorageMockBuilder {
   remove(response?: MockResponseOptions): Promise<RouteHandle>;
 }
 
-/**
- * Input for seeding a mocked Supabase auth session into browser storage.
- */
-export interface AuthSpySeedPayload {
-  /**
-   * Email used to build the mock session.
-   * - `undefined`: leave browser auth state unchanged.
-   * - `null`: clear the mocked auth session.
-   */
-  sessionEmail?: string | null;
-  /**
-   * Supabase auth cookie names to keep in sync with the mocked session.
-   */
-  authCookieKeys?: string[];
-}
 
 /**
  * Playwright `Page` type re-exported for convenience.
