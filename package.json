@@ -1,5 +1,5 @@
 {
-  "name": "playwright-supabase",
+  "name": "@asghonim/playwright-supabase",
   "version": "0.1.0",
   "description": "Setup Supabase mocks in Playwright tests",
   "main": "./dist/index.js",

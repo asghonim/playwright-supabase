@@ -3,7 +3,7 @@ import { SupabaseMock } from "./supabase-mock.js";
 import type { SupabaseMockOptions } from "./types.js";
 
 /**
- * Additional fixtures exposed by `playwright-supabase`.
+ * Additional fixtures exposed by `@asghonim/playwright-supabase`.
  */
 export interface SupabaseFixtures {
   /**
@@ -32,7 +32,7 @@ export interface SupabaseFixtureOptions {
  * @example
  * ```ts
  * // playwright/fixtures.ts
- * import { test, expect } from "playwright-supabase/fixtures";
+ * import { test, expect } from "@asghonim/playwright-supabase/fixtures";
  *
  * test("lists users", async ({ page, supabaseMock }) => {
  *   await supabaseMock.database("users").select({
