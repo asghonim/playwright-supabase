@@ -61,7 +61,13 @@ export class SupabaseMock {
 
   constructor(page: Page, options: SupabaseMockOptions) {
     this.page = page;
-    this.baseUrl = options.url.replace(/\/+$/, "");
+    // Trim trailing slashes without a regex to avoid any backtracking on
+    // user-controlled input.
+    let url = options.url;
+    while (url.endsWith("/")) {
+      url = url.slice(0, -1);
+    }
+    this.baseUrl = url;
   }
 
   // ---------------------------------------------------------------------------
