@@ -1,11 +1,11 @@
 /**
- * playwright-supabase
+ * @asghonim/playwright-supabase
  * -------------------
  * Utilities for mocking Supabase API calls inside Playwright tests.
  *
  * @example
  * ```ts
- * import { createSupabaseMock } from "playwright-supabase";
+ * import { createSupabaseMock } from "@asghonim/playwright-supabase";
  *
  * test("shows profiles", async ({ page }) => {
  *   const mock = createSupabaseMock(page, { url: "https://xyz.supabase.co" });

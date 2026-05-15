@@ -1,4 +1,4 @@
-# playwright-supabase
+# @asghonim/playwright-supabase
 
 > Setup Supabase mocks in Playwright tests
 
@@ -7,11 +7,11 @@ A lightweight TypeScript library that intercepts Supabase API calls (database, a
 ## Installation
 
 ```sh
-npm install --save-dev playwright-supabase
+npm install --save-dev @asghonim/playwright-supabase
 # or
-yarn add -D playwright-supabase
+yarn add -D @asghonim/playwright-supabase
 # or
-pnpm add -D playwright-supabase
+pnpm add -D @asghonim/playwright-supabase
 ```
 
 `@playwright/test` must be installed as a peer dependency.
@@ -22,7 +22,7 @@ pnpm add -D playwright-supabase
 
 ```ts
 import { test, expect } from "@playwright/test";
-import { createSupabaseMock } from "playwright-supabase";
+import { createSupabaseMock } from "@asghonim/playwright-supabase";
 
 test("shows a list of todos", async ({ page }) => {
   const mock = createSupabaseMock(page, {
@@ -44,11 +44,11 @@ test("shows a list of todos", async ({ page }) => {
 
 ### Using the built-in Playwright fixture
 
-`playwright-supabase` ships a pre-built `test` object with a `supabaseMock` fixture.
+`@asghonim/playwright-supabase` ships a pre-built `test` object with a `supabaseMock` fixture.
 
 ```ts
 // tests/todos.spec.ts
-import { test, expect } from "playwright-supabase";
+import { test, expect } from "@asghonim/playwright-supabase";
 
 // Set the Supabase URL once for all tests in this file
 test.use({ supabaseUrl: "https://xyz.supabase.co" });
@@ -70,7 +70,7 @@ You can also read the URL from an environment variable by setting `SUPABASE_URL`
 ```ts
 // tests/fixtures.ts
 import { test as base, expect } from "@playwright/test";
-import { SupabaseMock } from "playwright-supabase";
+import { SupabaseMock } from "@asghonim/playwright-supabase";
 
 export const test = base.extend<{ supabaseMock: SupabaseMock }>({
   supabaseMock: async ({ page }, use) => {
